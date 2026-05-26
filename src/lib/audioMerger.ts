@@ -4,17 +4,19 @@ import { writeFile, readFile, mkdir, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { randomUUID } from 'crypto';
+import * as mm from 'music-metadata';
 
 ffmpeg.setFfmpegPath(ffmpegPath as string);
 
 export async function getAudioDuration(filePath: string): Promise<number | null> {
-  return new Promise((resolve) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (ffmpeg as any).ffprobe(filePath, (err: unknown, meta: { format?: { duration?: number } }) => {
-      if (err || !meta?.format?.duration) { resolve(null); return; }
-      resolve(Math.round(meta.format.duration));
-    });
-  });
+  try {
+    const metadata = await mm.parseFile(filePath);
+    const duration = metadata.format.duration;
+    if (!duration) return null;
+    return Math.round(duration);
+  } catch {
+    return null;
+  }
 }
 
 export async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
