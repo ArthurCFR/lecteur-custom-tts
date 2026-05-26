@@ -9,10 +9,12 @@ import { ensureStorageDir, addEntry, STORAGE_DIR } from '@/lib/historyStore';
 
 export async function POST(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const voice = url.searchParams.get('voice') || process.env.TTS_VOICE || 'alloy';
+
     const formData = await req.formData();
     const textInput = formData.get('text') as string | null;
     const fileInput = formData.get('file') as File | null;
-    const voice = (formData.get('voice') as string) || process.env.TTS_VOICE || 'alloy';
 
     if (!textInput && !fileInput) {
       return NextResponse.json({ error: 'Aucun texte fourni.' }, { status: 400 });

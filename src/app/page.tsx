@@ -133,7 +133,7 @@ export default function Home() {
     formData.append('voice', voice);
 
     try {
-      const res = await fetch('/api/tts', { method: 'POST', body: formData, signal: controller.signal });
+      const res = await fetch(`/api/tts?voice=${encodeURIComponent(voice)}`, { method: 'POST', body: formData, signal: controller.signal });
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Erreur serveur.' }));
         throw new Error(data.error || 'Erreur lors de la génération.');
