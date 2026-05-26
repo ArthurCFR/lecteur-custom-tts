@@ -126,14 +126,15 @@ interface HistoryCardProps {
 
 export function HistoryCard({ entry, onPlay, onDownload, onDelete, onUpdate }: HistoryCardProps) {
   const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [draft, setDraft] = useState({ name: entry.name || '', label: entry.label || entry.textPreview, category: entry.category || '' });
 
   const cat = CATEGORIES.find((c) => c.id === entry.category);
   const bgClass = cat ? `${cat.bg} ${cat.border}` : 'bg-white border-stone-200';
 
   const saveEdit = async () => {
-    await fetch(`/api/history/${entry.id}`, {
-      method: 'PATCH',
+    await fetch(`/api/history/${entry.id}?action=update`, {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(draft),
     });
@@ -180,16 +181,36 @@ export function HistoryCard({ entry, onPlay, onDownload, onDelete, onUpdate }: H
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" />
             </svg>
           </button>
-          <button
-            type="button"
-            onClick={() => onDelete(entry.id)}
-            className="text-stone-300 hover:text-stone-500 transition-colors"
-            aria-label="Supprimer"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          {confirming ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-stone-500">Supprimer ?</span>
+              <button
+                type="button"
+                onClick={() => onDelete(entry.id)}
+                className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+              >
+                Oui
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+              >
+                Non
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="text-stone-300 hover:text-stone-500 transition-colors"
+              aria-label="Supprimer"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
 
