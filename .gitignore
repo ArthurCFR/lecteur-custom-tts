@@ -18,6 +18,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Local audio storage (dev only)
+.storage/
+
 # OS
 .DS_Store
 Thumbs.db

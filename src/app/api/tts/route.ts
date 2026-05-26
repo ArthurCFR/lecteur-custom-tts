@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { randomUUID } from 'crypto';
+import { writeFile } from 'fs/promises';
+import path from 'path';
 import { cleanMarkdown, cleanHtml, splitIntoChunks } from '@/lib/textCleaner';
 import { mergeAudioBuffers } from '@/lib/audioMerger';
+import { ensureStorageDir, addEntry, STORAGE_DIR } from '@/lib/historyStore';
 
 export async function POST(req: NextRequest) {
   try {
@@ -75,7 +79,8 @@ export async function POST(req: NextRequest) {
       }
 
       const response = await client.audio.speech.create(
-        params as unknown as Parameters<typeof client.audio.speech.create>[0]
+        params as unknown as Parameters<typeof client.audio.speech.create>[0],
+        { signal: req.signal }
       );
 
       buffers.push(Buffer.from(await response.arrayBuffer()));
@@ -83,12 +88,26 @@ export async function POST(req: NextRequest) {
 
     const merged = buffers.length === 1 ? buffers[0] : await mergeAudioBuffers(buffers);
 
+    // Save to persistent storage
+    const id = randomUUID();
+    const filename = `${id}.mp3`;
+    await ensureStorageDir();
+    await writeFile(path.join(STORAGE_DIR, filename), merged);
+    await addEntry({
+      id,
+      timestamp: Date.now(),
+      voice,
+      textPreview: cleanedText.slice(0, 100).trim(),
+      filename,
+    });
+
     return new NextResponse(new Uint8Array(merged), {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
         'Content-Disposition': 'attachment; filename="podcast.mp3"',
         'Content-Length': String(merged.length),
+        'X-History-Id': id,
       },
     });
   } catch (error: unknown) {

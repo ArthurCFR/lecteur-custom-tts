@@ -11,6 +11,25 @@ const VOICES = [
 
 const ACCEPTED_TYPES = ['.txt', '.md', '.html', '.htm'];
 
+interface HistoryEntry {
+  id: string;
+  timestamp: number;
+  voice: string;
+  textPreview: string;
+  filename: string;
+}
+
+function formatRelativeTime(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const minutes = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+  if (minutes < 1) return "À l'instant";
+  if (minutes < 60) return `Il y a ${minutes} min`;
+  if (hours < 24) return `Il y a ${hours}h`;
+  return `Il y a ${days}j`;
+}
+
 export default function Home() {
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -20,9 +39,20 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await fetch('/api/history');
+      if (res.ok) setHistory(await res.json());
+    } catch {}
+  }, []);
+
+  useEffect(() => { fetchHistory(); }, [fetchHistory]);
 
   useEffect(() => {
     if (loading) {
@@ -56,6 +86,20 @@ export default function Home() {
     if (f) handleFileSelect(f);
   }, [handleFileSelect]);
 
+  const deleteHistoryEntry = async (id: string) => {
+    setHistory((prev) => prev.filter((e) => e.id !== id));
+    await fetch(`/api/history/${id}`, { method: 'DELETE' });
+  };
+
+  const clearHistory = async () => {
+    setHistory([]);
+    await fetch('/api/history', { method: 'DELETE' });
+  };
+
+  const handleStop = () => {
+    abortControllerRef.current?.abort();
+  };
+
   const handleGenerate = async () => {
     if (!text.trim() && !file) {
       setError('Veuillez saisir du texte ou déposer un fichier.');
@@ -69,34 +113,39 @@ export default function Home() {
       setAudioUrl(null);
     }
 
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     const formData = new FormData();
-    if (file) {
-      formData.append('file', file);
-    } else {
-      formData.append('text', text);
-    }
+    if (file) formData.append('file', file);
+    else formData.append('text', text);
     formData.append('voice', voice);
 
     try {
-      const res = await fetch('/api/tts', { method: 'POST', body: formData });
+      const res = await fetch('/api/tts', { method: 'POST', body: formData, signal: controller.signal });
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Erreur serveur.' }));
         throw new Error(data.error || 'Erreur lors de la génération.');
       }
       const blob = await res.blob();
       setAudioUrl(URL.createObjectURL(blob));
+      await fetchHistory();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue.');
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Génération annulée.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Erreur inconnue.');
+      }
     } finally {
       setLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
-  const handleDownload = () => {
-    if (!audioUrl) return;
+  const handleDownload = (url: string, filename = 'podcast.mp3') => {
     const a = document.createElement('a');
-    a.href = audioUrl;
-    a.download = 'podcast.mp3';
+    a.href = url;
+    a.download = filename;
     a.click();
   };
 
@@ -186,9 +235,7 @@ export default function Home() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
                 <span className="text-sm font-medium">{file.name}</span>
-                <span className="text-xs text-stone-400">
-                  ({(file.size / 1024).toFixed(1)} Ko)
-                </span>
+                <span className="text-xs text-stone-400">({(file.size / 1024).toFixed(1)} Ko)</span>
                 <button
                   type="button"
                   className="ml-1 text-xs text-stone-400 hover:text-stone-600 transition-colors"
@@ -233,38 +280,49 @@ export default function Home() {
                 `}
               >
                 <div className="text-sm font-medium">{v.label}</div>
-                <div className={`text-xs mt-0.5 ${voice === v.id ? 'text-stone-400' : 'text-stone-400'}`}>
-                  {v.desc}
-                </div>
+                <div className="text-xs mt-0.5 text-stone-400">{v.desc}</div>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Generate button */}
-        <button
-          type="button"
-          onClick={handleGenerate}
-          disabled={loading || !hasInput}
-          className="w-full py-4 bg-stone-800 text-white rounded-xl font-medium tracking-wide hover:bg-stone-700 active:bg-stone-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-3">
-              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <span>
-                Génération en cours…
-                {elapsed > 0 && (
-                  <span className="font-normal opacity-70 ml-2">{elapsed}s</span>
-                )}
+        {/* Generate + Stop */}
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={loading || !hasInput}
+            className="flex-1 py-4 bg-stone-800 text-white rounded-xl font-medium tracking-wide hover:bg-stone-700 active:bg-stone-900 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-3">
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                <span>
+                  Génération en cours…
+                  {elapsed > 0 && <span className="font-normal opacity-70 ml-2">{elapsed}s</span>}
+                </span>
               </span>
-            </span>
-          ) : (
-            'Générer le podcast'
+            ) : (
+              'Générer le podcast'
+            )}
+          </button>
+
+          {loading && (
+            <button
+              type="button"
+              onClick={handleStop}
+              title="Arrêter la génération"
+              className="px-5 py-4 bg-red-600 text-white rounded-xl font-medium hover:bg-red-500 active:bg-red-700 transition-all shadow-sm"
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
+            </button>
           )}
-        </button>
+        </div>
 
         {loading && (
           <p className="text-center text-xs text-stone-400 mt-3">
@@ -282,7 +340,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Audio player */}
+        {/* Current audio player */}
         {audioUrl && (
           <div className="mt-6 p-6 bg-white border border-stone-200 rounded-2xl shadow-sm">
             <div className="flex items-center gap-2 mb-4">
@@ -294,7 +352,7 @@ export default function Home() {
             <audio controls className="w-full mb-4 rounded-lg" src={audioUrl} />
             <button
               type="button"
-              onClick={handleDownload}
+              onClick={() => handleDownload(audioUrl)}
               className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-500 active:bg-emerald-700 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -302,6 +360,65 @@ export default function Home() {
               </svg>
               Télécharger le MP3
             </button>
+          </div>
+        )}
+
+        {/* History */}
+        {history.length > 0 && (
+          <div className="mt-12">
+            <div className="flex items-center justify-between mb-4">
+              <div className="inline-flex items-center gap-2 text-xs font-medium text-stone-400 uppercase tracking-widest">
+                <span className="w-4 h-px bg-stone-300" />
+                Historique ({history.length})
+              </div>
+              <button
+                type="button"
+                onClick={clearHistory}
+                className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+              >
+                Tout effacer
+              </button>
+            </div>
+            <div className="space-y-3">
+              {history.map((entry) => (
+                <div key={entry.id} className="p-4 bg-white border border-stone-200 rounded-2xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-stone-600 capitalize">{entry.voice}</span>
+                      <span className="w-1 h-1 rounded-full bg-stone-300" />
+                      <span className="text-xs text-stone-400">{formatRelativeTime(entry.timestamp)}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteHistoryEntry(entry.id)}
+                      className="text-xs text-stone-300 hover:text-stone-500 transition-colors"
+                      aria-label="Supprimer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  {entry.textPreview && (
+                    <p className="text-xs text-stone-400 mb-3 italic line-clamp-2">
+                      «&nbsp;{entry.textPreview}{entry.textPreview.length >= 100 ? '…' : ''}&nbsp;»
+                    </p>
+                  )}
+                  <audio controls className="w-full mb-3 rounded-lg" src={`/api/history/${entry.id}/audio`} />
+                  <button
+                    type="button"
+                    onClick={() => handleDownload(
+                      `/api/history/${entry.id}/audio`,
+                      `podcast-${new Date(entry.timestamp).toISOString().slice(0, 10)}.mp3`
+                    )}
+                    className="w-full flex items-center justify-center gap-2 py-2 border border-stone-200 text-stone-600 rounded-xl text-xs font-medium hover:bg-stone-50 transition-colors"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                    </svg>
+                    Télécharger
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
