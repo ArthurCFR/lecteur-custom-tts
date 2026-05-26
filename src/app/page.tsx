@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { AudioPlayer } from '@/components/AudioPlayer';
 
 const VOICES = [
   { id: 'alloy', label: 'Alloy', desc: 'Neutre et clair' },
@@ -40,6 +41,7 @@ export default function Home() {
   const [dragOver, setDragOver] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [activeAudio, setActiveAudio] = useState<{ src: string; label: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -162,7 +164,7 @@ export default function Home() {
   const hasInput = text.trim().length > 0 || file !== null;
 
   return (
-    <main className="min-h-screen bg-stone-50 flex items-start justify-center px-4 py-16">
+    <main className={`min-h-screen bg-stone-50 flex items-start justify-center px-4 py-16 ${activeAudio ? 'pb-36' : ''}`}>
       <div className="w-full max-w-2xl">
 
         {/* Header */}
@@ -349,7 +351,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Current audio player */}
+        {/* Current audio */}
         {audioUrl && (
           <div className="mt-6 p-6 bg-white border border-stone-200 rounded-2xl shadow-sm">
             <div className="flex items-center gap-2 mb-4">
@@ -358,17 +360,28 @@ export default function Home() {
                 Podcast généré
               </span>
             </div>
-            <audio controls className="w-full mb-4 rounded-lg" src={audioUrl} />
-            <button
-              type="button"
-              onClick={() => handleDownload(audioUrl)}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-500 active:bg-emerald-700 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              Télécharger le MP3
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setActiveAudio({ src: audioUrl, label: file ? file.name : text.slice(0, 80) })}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-stone-800 text-white rounded-xl text-sm font-medium hover:bg-stone-700 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                Écouter
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownload(audioUrl)}
+                className="flex-1 flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-sm font-medium hover:bg-emerald-500 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                </svg>
+                Télécharger
+              </button>
+            </div>
           </div>
         )}
 
@@ -428,20 +441,31 @@ export default function Home() {
                       «&nbsp;{entry.textPreview}{entry.textPreview.length >= 100 ? '…' : ''}&nbsp;»
                     </p>
                   )}
-                  <audio controls className="w-full mb-3 rounded-lg" src={`/api/history/${entry.id}/audio`} />
-                  <button
-                    type="button"
-                    onClick={() => handleDownload(
-                      `/api/history/${entry.id}/audio`,
-                      `podcast-${new Date(entry.timestamp).toISOString().slice(0, 10)}.mp3`
-                    )}
-                    className="w-full flex items-center justify-center gap-2 py-2 border border-stone-200 text-stone-600 rounded-xl text-xs font-medium hover:bg-stone-50 transition-colors"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                    </svg>
-                    Télécharger
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveAudio({ src: `/api/history/${entry.id}/audio`, label: entry.textPreview || entry.voice })}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 bg-stone-800 text-white rounded-xl text-xs font-medium hover:bg-stone-700 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                      Écouter
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownload(
+                        `/api/history/${entry.id}/audio`,
+                        `podcast-${new Date(entry.timestamp).toISOString().slice(0, 10)}.mp3`
+                      )}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 border border-stone-200 text-stone-600 rounded-xl text-xs font-medium hover:bg-stone-50 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                      </svg>
+                      Télécharger
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -454,6 +478,15 @@ export default function Home() {
         </p>
 
       </div>
+
+      {activeAudio && (
+        <AudioPlayer
+          src={activeAudio.src}
+          label={activeAudio.label}
+          onClose={() => setActiveAudio(null)}
+        />
+      )}
+
     </main>
   );
 }
