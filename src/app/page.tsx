@@ -42,6 +42,7 @@ export default function Home() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -94,6 +95,14 @@ export default function Home() {
   const clearHistory = async () => {
     setHistory([]);
     await fetch('/api/history', { method: 'DELETE' });
+  };
+
+  const handleImportMp3 = async (f: File) => {
+    const formData = new FormData();
+    formData.append('file', f);
+    formData.append('label', f.name.replace(/\.mp3$/i, ''));
+    const res = await fetch('/api/history/upload', { method: 'POST', body: formData });
+    if (res.ok) await fetchHistory();
   };
 
   const handleStop = () => {
@@ -371,13 +380,30 @@ export default function Home() {
                 <span className="w-4 h-px bg-stone-300" />
                 Historique ({history.length})
               </div>
-              <button
-                type="button"
-                onClick={clearHistory}
-                className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
-              >
-                Tout effacer
-              </button>
+              <div className="flex items-center gap-3">
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".mp3"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportMp3(f); e.target.value = ''; }}
+                />
+                <button
+                  type="button"
+                  onClick={() => importInputRef.current?.click()}
+                  className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+                >
+                  Importer un MP3
+                </button>
+                <span className="w-px h-3 bg-stone-200" />
+                <button
+                  type="button"
+                  onClick={clearHistory}
+                  className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+                >
+                  Tout effacer
+                </button>
+              </div>
             </div>
             <div className="space-y-3">
               {history.map((entry) => (
