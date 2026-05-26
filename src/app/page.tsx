@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { AudioPlayer } from '@/components/AudioPlayer';
+import { HistoryCard } from '@/components/HistoryCard';
+import type { HistoryEntry } from '@/components/HistoryCard';
 
 const VOICES = [
   { id: 'alloy', label: 'Alloy', desc: 'Neutre et clair' },
@@ -12,24 +14,6 @@ const VOICES = [
 
 const ACCEPTED_TYPES = ['.txt', '.md', '.html', '.htm'];
 
-interface HistoryEntry {
-  id: string;
-  timestamp: number;
-  voice: string;
-  textPreview: string;
-  filename: string;
-}
-
-function formatRelativeTime(timestamp: number): string {
-  const diff = Date.now() - timestamp;
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (minutes < 1) return "À l'instant";
-  if (minutes < 60) return `Il y a ${minutes} min`;
-  if (hours < 24) return `Il y a ${hours}h`;
-  return `Il y a ${days}j`;
-}
 
 export default function Home() {
   const [text, setText] = useState('');
@@ -420,53 +404,16 @@ export default function Home() {
             </div>
             <div className="space-y-3">
               {history.map((entry) => (
-                <div key={entry.id} className="p-4 bg-white border border-stone-200 rounded-2xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-stone-600 capitalize">{entry.voice}</span>
-                      <span className="w-1 h-1 rounded-full bg-stone-300" />
-                      <span className="text-xs text-stone-400">{formatRelativeTime(entry.timestamp)}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => deleteHistoryEntry(entry.id)}
-                      className="text-xs text-stone-300 hover:text-stone-500 transition-colors"
-                      aria-label="Supprimer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  {entry.textPreview && (
-                    <p className="text-xs text-stone-400 mb-3 italic line-clamp-2">
-                      «&nbsp;{entry.textPreview}{entry.textPreview.length >= 100 ? '…' : ''}&nbsp;»
-                    </p>
-                  )}
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveAudio({ src: `/api/history/${entry.id}/audio`, label: entry.textPreview || entry.voice })}
-                      className="flex-1 flex items-center justify-center gap-2 py-2 bg-stone-800 text-white rounded-xl text-xs font-medium hover:bg-stone-700 transition-colors"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                      Écouter
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDownload(
-                        `/api/history/${entry.id}/audio`,
-                        `podcast-${new Date(entry.timestamp).toISOString().slice(0, 10)}.mp3`
-                      )}
-                      className="flex-1 flex items-center justify-center gap-2 py-2 border border-stone-200 text-stone-600 rounded-xl text-xs font-medium hover:bg-stone-50 transition-colors"
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                      </svg>
-                      Télécharger
-                    </button>
-                  </div>
-                </div>
+                <HistoryCard
+                  key={entry.id}
+                  entry={entry}
+                  onPlay={(src, label) => setActiveAudio({ src, label })}
+                  onDownload={handleDownload}
+                  onDelete={deleteHistoryEntry}
+                  onUpdate={(id, updates) =>
+                    setHistory((prev) => prev.map((e) => (e.id === id ? { ...e, ...updates } : e)))
+                  }
+                />
               ))}
             </div>
           </div>

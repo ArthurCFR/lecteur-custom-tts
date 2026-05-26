@@ -7,6 +7,16 @@ import { randomUUID } from 'crypto';
 
 ffmpeg.setFfmpegPath(ffmpegPath as string);
 
+export async function getAudioDuration(filePath: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (ffmpeg as any).ffprobe(filePath, (err: unknown, meta: { format?: { duration?: number } }) => {
+      if (err || !meta?.format?.duration) { resolve(null); return; }
+      resolve(Math.round(meta.format.duration));
+    });
+  });
+}
+
 export async function mergeAudioBuffers(buffers: Buffer[]): Promise<Buffer> {
   if (buffers.length === 1) return buffers[0];
 

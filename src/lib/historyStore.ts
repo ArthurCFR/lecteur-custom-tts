@@ -11,6 +11,10 @@ export interface HistoryEntry {
   voice: string;
   textPreview: string;
   filename: string;
+  duration?: number;
+  name?: string;
+  label?: string;
+  category?: string;
 }
 
 export async function ensureStorageDir() {
@@ -36,6 +40,14 @@ export async function addEntry(entry: HistoryEntry): Promise<HistoryEntry[]> {
   const next = [entry, ...history].slice(0, MAX_HISTORY);
   await writeHistory(next);
   return next;
+}
+
+export async function updateEntry(id: string, updates: Partial<Pick<HistoryEntry, 'name' | 'label' | 'category'>>) {
+  const history = await readHistory();
+  const idx = history.findIndex((e) => e.id === id);
+  if (idx === -1) return;
+  history[idx] = { ...history[idx], ...updates };
+  await writeHistory(history);
 }
 
 export async function deleteEntry(id: string) {

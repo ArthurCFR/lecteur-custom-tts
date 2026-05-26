@@ -3,6 +3,7 @@ import { writeFile } from 'fs/promises';
 import { randomUUID } from 'crypto';
 import path from 'path';
 import { ensureStorageDir, addEntry, STORAGE_DIR } from '@/lib/historyStore';
+import { getAudioDuration } from '@/lib/audioMerger';
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,13 +24,16 @@ export async function POST(req: NextRequest) {
     const filename = `${id}.mp3`;
 
     await ensureStorageDir();
-    await writeFile(path.join(STORAGE_DIR, filename), buffer);
+    const filePath = path.join(STORAGE_DIR, filename);
+    await writeFile(filePath, buffer);
+    const duration = await getAudioDuration(filePath);
     await addEntry({
       id,
       timestamp: Date.now(),
       voice,
       textPreview: label,
       filename,
+      ...(duration !== null && { duration }),
     });
 
     return NextResponse.json({ ok: true, id });

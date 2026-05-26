@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto';
 import { writeFile } from 'fs/promises';
 import path from 'path';
 import { cleanMarkdown, cleanHtml, splitIntoChunks } from '@/lib/textCleaner';
-import { mergeAudioBuffers } from '@/lib/audioMerger';
+import { mergeAudioBuffers, getAudioDuration } from '@/lib/audioMerger';
 import { ensureStorageDir, addEntry, STORAGE_DIR } from '@/lib/historyStore';
 
 export async function POST(req: NextRequest) {
@@ -94,13 +94,16 @@ export async function POST(req: NextRequest) {
     const id = randomUUID();
     const filename = `${id}.mp3`;
     await ensureStorageDir();
-    await writeFile(path.join(STORAGE_DIR, filename), merged);
+    const filePath = path.join(STORAGE_DIR, filename);
+    await writeFile(filePath, merged);
+    const duration = await getAudioDuration(filePath);
     await addEntry({
       id,
       timestamp: Date.now(),
       voice,
       textPreview: cleanedText.slice(0, 100).trim(),
       filename,
+      ...(duration !== null && { duration }),
     });
 
     return new NextResponse(new Uint8Array(merged), {
