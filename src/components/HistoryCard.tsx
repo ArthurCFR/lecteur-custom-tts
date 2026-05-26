@@ -168,7 +168,13 @@ export function HistoryCard({ entry, onPlay, onDownload, onDelete, onUpdate }: H
           {cat && <span className={`${cat.iconColor}`}>{cat.icon}</span>}
           <span className="text-xs text-stone-400 capitalize">{entry.voice}</span>
           {entry.duration && (
-            <span className="text-xs text-stone-400">· {formatDuration(entry.duration)}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-xs font-medium">
+              <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="12" cy="12" r="9" />
+                <path strokeLinecap="round" d="M12 7v5l3 3" />
+              </svg>
+              {formatDuration(entry.duration)}
+            </span>
           )}
           <span className="text-xs text-stone-300">· {formatRelativeTime(entry.timestamp)}</span>
           <button
