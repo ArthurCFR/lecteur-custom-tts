@@ -6,6 +6,7 @@ import path from 'path';
 import { cleanMarkdown, cleanHtml, splitIntoChunks } from '@/lib/textCleaner';
 import { mergeAudioBuffers, getAudioDuration } from '@/lib/audioMerger';
 import { ensureStorageDir, addEntry, STORAGE_DIR } from '@/lib/historyStore';
+import { preprocessChunksForSpeech } from '@/lib/textPreprocessor';
 
 export async function POST(req: NextRequest) {
   try {
@@ -59,7 +60,8 @@ export async function POST(req: NextRequest) {
     });
 
     const model = process.env.TTS_MODEL || 'gpt-4o-mini-tts';
-    const chunks = splitIntoChunks(cleanedText);
+    const rawChunks = splitIntoChunks(cleanedText);
+    const chunks = await preprocessChunksForSpeech(rawChunks);
 
     console.log(`[TTS] ${chunks.length} segment(s) · voix: ${voice} · modèle: ${model}`);
 
@@ -77,7 +79,9 @@ export async function POST(req: NextRequest) {
 
       if (model.includes('gpt-4o')) {
         params.instructions =
-          'Lis ce texte comme un narrateur de podcast français, calme, clair et posé.';
+          'Lis ce texte comme un narrateur de podcast, avec naturel et intention. ' +
+          'Respecte les "..." comme des pauses réfléchies, les "—" comme des ruptures de rythme. ' +
+          'Varie légèrement le rythme et l\'intonation selon le contenu : plus posé sur les explications, plus vivant sur les exemples.';
       }
 
       const response = await client.audio.speech.create(

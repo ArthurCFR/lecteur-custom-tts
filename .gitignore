@@ -28,3 +28,7 @@ Thumbs.db
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code skills (fichiers locaux, ne pas committer)
+*.skill
+*.skillZone.Identifier
