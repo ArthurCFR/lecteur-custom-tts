@@ -35,7 +35,11 @@ export async function preprocessChunksForSpeech(chunks: string[]): Promise<strin
           messages: [{ role: 'user', content: chunk }],
         });
         const content = message.content[0];
-        if (content.type === 'text') return content.text.trim();
+        if (content.type === 'text') {
+          const result = content.text.trim();
+          console.log(`[Preprocess] Chunk ${i + 1} OK (${chunk.length} → ${result.length} cars)`);
+          return result;
+        }
         return chunk;
       } catch (err) {
         console.warn(`[Preprocess] Erreur chunk ${i + 1}, fallback sur original:`, err);
